@@ -73,7 +73,11 @@ A phone sees the Ask me anything thread after that phone has submitted its own q
 
 The reply answers the question the student asked. It does not pitch the university. It does not invent credits, tuition, fees, deadlines, admission rules, course numbers, or office procedures. When a question needs one of those, it says it does not have the official figure and points to louisiana.edu. The student text is untrusted.
 
-`GEMINI_API_KEY` empty, or the word `disabled`, skips drafts. The default model is `gemini-flash-lite-latest` (`GEMINI_MODEL` overrides it). On the morning of the event the reply sat on "Drafting a short answer" because the model spent its token budget on hidden reasoning and returned no text, and because a named model 404'd. The call now turns thinking off, retries a 400 without that flag, and falls back to `gemini-flash-lite-latest` on 404 or 429. A failed draft is remembered for two minutes so the queue does not hammer the API. New draft on `/ask` replaces the reply on the phones.
+`GEMINI_API_KEY` empty, or the word `disabled`, skips drafts. The default model is `gemini-flash-lite-latest` (`GEMINI_MODEL` overrides it).
+
+On the morning of the event the reply sat on "Drafting a short answer" because the free quota for `gemini-3.8-flash` was used up. The Answers page then called Gemini again on every refresh, which spent what was left. No new key and no paid quota were added. Drafts moved to Flash Lite, which has its own free quota. If `GEMINI_MODEL` points at another model and that call returns 429 or 404, one attempt goes to `gemini-flash-lite-latest`. A failed draft is remembered for two minutes, so opening the page does not call again. New draft on `/ask` still does. A reply that succeeded is stored and later views read the database.
+
+A separate call detail: non-lite models are asked to skip hidden reasoning (`thinkingBudget` 0), and a 400 is retried without that flag. Thought text is dropped. That keeps a short reply from being eaten by reasoning tokens. It is not what cleared the quota error.
 
 The key used in 2026 was a host secret. It is not in this repo.
 
