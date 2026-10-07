@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>I am going to UL — support guide</title>
+<style>
+  :root { --red: #CE1126; --ink: #141414; --paper: #F6F3F1; --muted: #5E5956; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 18px/1.45 "Segoe UI", Helvetica, Arial, sans-serif; }
+  main { max-width: 880px; margin: 0 auto; padding: 32px 20px 80px; }
+  h1 { font-size: 40px; line-height: 1.05; letter-spacing: -0.03em; margin: 0 0 8px; }
+  h2 { font-size: 28px; letter-spacing: -0.03em; margin: 40px 0 8px; }
+  p { margin: 8px 0; }
+  a { color: var(--red); }
+  .kicker { color: var(--red); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin: 0; }
+  .muted { color: var(--muted); }
+  figure { margin: 16px 0 8px; }
+  img { width: 100%; height: auto; background: white; border: 1px solid #E4DDD8; }
+  figcaption { color: var(--muted); font-size: 14px; margin-top: 6px; }
+  table { width: 100%; border-collapse: collapse; background: white; margin: 12px 0; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid #E4DDD8; }
+  th { width: 28%; }
+  code { font-family: Consolas, monospace; font-size: 0.92em; }
+  ul { margin: 8px 0; padding-left: 22px; }
+  li { margin: 6px 0; }
+</style>
+</head>
+<body>
+<main>
+  <p class="kicker">University of Louisiana at Lafayette</p>
+  <h1>I am going to UL</h1>
+  <p>Support guide for the booth. School of Computing and Informatics.</p>
+  <p>The site is <a href="https://iamgoingtoul.fly.dev/">https://iamgoingtoul.fly.dev</a>. The password is the same for the projector, review, and answer drafts. Get it from the professor. It is not written in this guide.</p>
+  <p class="muted">The pictures are from a practice run. Names such as Bayou Scout are nicknames the booth assigns. They are not student names.</p>
+
+  <h2>What students do</h2>
+  <p>They scan the code on the projector. The phone gives them a nickname and the questions. They do not type a name, email, or account.</p>
+  <p>One scan unlocks every question. The code stays the same all day, so it can be printed and posted. If they scan again before their time runs out, they keep the same nickname. Open <code>/print</code> on a signed-in laptop to print the sheet. Revoke codes retires that sheet.</p>
+  <p>Votes show up in the totals immediately. A written comment does not appear on the projector until someone approves it. Comments are limited to 140 characters.</p>
+
+  <h2>The pages</h2>
+  <table>
+    <tr><th>Browse</th><td><a href="https://iamgoingtoul.fly.dev/">iamgoingtoul.fly.dev</a><br>Anyone can read the questions. Voting stays in the room.</td></tr>
+    <tr><th>Phone</th><td>Opens after a scan. This is where a student answers.</td></tr>
+    <tr><th>Projector</th><td><a href="https://iamgoingtoul.fly.dev/host">/host</a><br>The screen in the room. Sign in required.</td></tr>
+    <tr><th>Review</th><td><a href="https://iamgoingtoul.fly.dev/mod">/mod</a><br>Approve or reject comments, on a phone. Sign in required.</td></tr>
+    <tr><th>Answers</th><td><a href="https://iamgoingtoul.fly.dev/ask">/ask</a><br>A short draft for each Ask me anything question. Sign in required. Students never see this page.</td></tr>
+  </table>
+
+  <h2>Sign in</h2>
+  <figure>
+    <img src="/help/images/login.png" alt="Host sign in, with an empty password field and a Show button">
+    <figcaption>Show reveals the password while it is being typed. The field in this picture is empty on purpose.</figcaption>
+  </figure>
+
+  <h2>Before students arrive</h2>
+  <ul>
+    <li>On the projector laptop, open <code>/host</code> and sign in.</li>
+    <li>Press <strong>Present</strong> so the question list stays out of the way. Press <strong>Edit</strong> when you need the controls again.</li>
+    <li>Choose the question. Press <strong>Questions</strong>, or the number key for that question. Choosing one closes the list. <strong>Close</strong> or Escape also closes it.</li>
+    <li>Leave the QR code visible.</li>
+    <li>On a phone, open <code>/mod</code>. Open <code>/ask</code> when you want drafts. Review and Answers link to each other at the top of those pages.</li>
+  </ul>
+
+  <h2>The public page</h2>
+  <figure>
+    <img src="/help/images/browse.png" alt="The public page, headed I am going to UL, telling visitors to scan the code in the room">
+    <figcaption>People who open the site without scanning can read the questions. They cannot vote or see results.</figcaption>
+  </figure>
+
+  <h2>The projector</h2>
+  <figure>
+    <img src="/help/images/host.png" alt="Projector view of the Mars vehicle question, with photos, a QR code, and the control bar">
+    <figcaption>The address under the code is iamgoingtoul.fly.dev. The right side shows the room totals and only approved comments.</figcaption>
+  </figure>
+  <ul>
+    <li><strong>Pause answers</strong> stops new votes. Totals and comments that are already up stay. <strong>Resume answers</strong> turns voting back on.</li>
+    <li><strong>Revoke codes</strong> kills the code on the screen and on any printed sheet. Phones that already scanned keep working until their own timer ends. Print a new sheet after revoking.</li>
+    <li><strong>Clear answers</strong> erases every vote, comment, and nickname. The questions stay. Do not use it to remove one line.</li>
+  </ul>
+  <p>On the Before Tesla question, a film is cued at 5:43. Press play if the browser does not start it.</p>
+
+  <h2>A student phone</h2>
+  <figure>
+    <img src="/help/images/play.png" alt="A phone showing the nickname Moss Rover and the Mars vehicle choices">
+    <figcaption>The nickname can appear on the projector next to an approved comment. The timer is how long this scan lasts.</figcaption>
+  </figure>
+  <p>Each person can answer a question once. After they send it, their phone shows the room totals. Ask me anything requires a written question. On the other questions, the comment is optional.</p>
+  <p>If the phone says to scan the code again, the code was revoked or the day ended. They should scan the code on the posted sheet or the projector.</p>
+
+  <h2>Review</h2>
+  <figure>
+    <img src="/help/images/mod.png" alt="Review phone with Approve and Reject, and Take off screen under On the screen">
+    <figcaption>Approve puts the line on the projector. Reject keeps it off. Take off screen pulls a line back down after it is already showing.</figcaption>
+  </figure>
+  <p>There is no skip. The phone stays on the oldest waiting line until you tap Approve or Reject. You cannot look at the next line first.</p>
+  <p>Reject cannot be undone. If you are unsure, reject it. A line that never appears is safer than a line you did not mean to show.</p>
+  <p>The vote still counts either way. Taking a line off the screen does not remove the vote.</p>
+  <p>A red flag means the comment has rough language or looks like a link or an email. The flag is a warning. Approve is still available, so read the line before you tap it.</p>
+  <p>If a line is already on the projector and it should not be, scroll to <strong>On the screen</strong> and tap <strong>Take off screen</strong>. The projector drops that text within a couple of seconds. Reload the review page if it was already open.</p>
+
+  <h2>Answer drafts</h2>
+  <figure>
+    <img src="/help/images/ask.png" alt="Answers page with one student question and a short draft">
+    <figcaption>One Ask me anything question per screen. Previous and Next move through them. The reply is what the student reads on their phone.</figcaption>
+  </figure>
+  <p>A finished reply shows up under that question on every phone that has asked something. Students can leave and come back. The projector shows that question and reply after you approve it.</p>
+  <p>The reply is two or three sentences. It will not invent credits, tuition, fees, deadlines, or other official numbers. If a question needs one of those, the reply points them to <a href="https://louisiana.edu">louisiana.edu</a>. Trust that over a guessed number.</p>
+  <p><strong>New draft</strong> writes another reply and replaces it on every phone. <strong>Not on the projector yet</strong> means the question is still waiting on the Review page. The phones can already read the reply.</p>
+
+  <h2>If something goes wrong</h2>
+  <ul>
+    <li>A bad comment is on the screen: Review, then <strong>Take off screen</strong>. Do not clear the whole booth.</li>
+    <li>You are not sure about a waiting line: <strong>Reject</strong>. You cannot bring it back.</li>
+    <li>The question list covers the question: <strong>Close</strong>, or Escape.</li>
+    <li>Phones cannot send: check whether <strong>Pause answers</strong> is on. The button will say <strong>Resume answers</strong>.</li>
+    <li>You cannot see what you typed for the password: <strong>Show</strong>.</li>
+    <li>The whole room should start over: <strong>Clear answers</strong>, and only if the professor asks for that.</li>
+  </ul>
+</main>
+</body>
+</html>
