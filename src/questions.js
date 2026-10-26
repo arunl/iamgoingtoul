@@ -1,5 +1,18 @@
 export const QUESTIONS = [
   {
+    id: "enjoy",
+    title: "Demo",
+    audience: "you",
+    prompt: "Are you enjoying this demo?",
+    kind: "single",
+    hint: "",
+    reveal: "",
+    choices: [
+      { id: "enjoy-up", label: "👍 Thumbs up" },
+      { id: "enjoy-down", label: "👎 Thumbs down" },
+    ],
+  },
+  {
     id: "git-you",
     title: "Git",
     audience: "you",

@@ -2,7 +2,7 @@
 
 The live questions are a class check-in. Science Day 2026 is archived in `src/archive/science-day-2026.js` and is not loaded.
 
-For class: open `/host` on the projector and sign in. Students scan the code. Each person answers Git, AI tools, agents, and hard parts. Each team agrees, then one phone answers Team Git and Cover next. Keys `1` through `6` change the question. Bars update as phones answer. A team’s “what should we cover” line shows on the projector as soon as it is sent. Save a team name on the phone before those two.
+For class: open `/host` on the projector and sign in. Students scan the code. Each person answers Git, AI tools, agents, and hard parts. Each team agrees, then one phone answers Team Git and Cover next. Keys `1` through `7` change the question. Key `1` is the thumbs-up question. Bars update as phones answer. A team’s “what should we cover” line shows on the projector as soon as it is sent. Save a team name on the phone before those two.
 
 Booth site for Science Day, School of Computing and Informatics, University of Louisiana at Lafayette. Built the night of 6 Oct 2026 and used on 7 Oct 2026. Groups of high school students, teachers, and parents had about two or three minutes in the room. The projector was the show. The phone was the ballot.
 
@@ -41,12 +41,13 @@ The live list is `src/questions.js`. The server copies it into SQLite on startup
 
 The class check-in is:
 
-1. How comfortable are you using Git with a team?
-2. How comfortable are you using AI tools while you code?
-3. Which AI tools are you using?
-4. What are you finding difficult?
-5. How does your team use Git?
-6. What topic should we cover for your team?
+1. Are you enjoying this demo?
+2. How comfortable are you using Git with a team?
+3. How comfortable are you using AI tools while you code?
+4. Which AI tools are you using?
+5. What are you finding difficult?
+6. How does your team use Git?
+7. What topic should we cover for your team?
 
 Science Day 2026 used these seven, now in `src/archive/science-day-2026.js`:
 
