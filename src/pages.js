@@ -50,7 +50,9 @@ function mediaHtml(question) {
 export function browsePage(questions) {
   const articles = questions
     .map((question) => {
-      const note = question.kind === "multi" ? `<p class="fine">Pick any that fit.</p>` : ""
+      const who = question.audience === "team" ? "One phone per team." : "Each person answers."
+      const extra = question.kind === "multi" ? " Pick any that fit." : question.kind === "open" ? " One short line." : ""
+      const note = `<p class="fine">${who}${extra}</p>`
       const choices = question.choices.length
         ? `<ul>${question.choices.map((choice) => `<li>${esc(choice.label)}</li>`).join("")}</ul>`
         : `<p class="fine">A short written question.</p>`
@@ -58,15 +60,15 @@ export function browsePage(questions) {
     })
     .join("")
   return layout({
-    title: "I am going to UL",
+    title: "Class check-in",
     bodyClass: "browse",
     body: `<header class="wrap head">
   <p class="kicker">University of Louisiana at Lafayette</p>
-  <h1 class="lockup">I am going to <img class="ul-mark" src="/media/ul-lafayette.png" alt="UL"></h1>
-  <p class="sub">School of Computing and Informatics</p>
+  <h1 class="lockup">Class check-in <img class="ul-mark" src="/media/ul-lafayette.png" alt="UL Lafayette"></h1>
+  <p class="sub">A few minutes on your phone. The screen shows the room.</p>
 </header>
 <div class="wrap">
-  <p class="gate">Scan the code on the screen in the lab to answer. You can read the questions here. Voting stays in the room.</p>
+  <p class="gate">Scan the code on the screen to answer.</p>
   ${articles}
   <p class="fine">School of Computing and Informatics</p>
 </div>`,
@@ -82,17 +84,22 @@ function clockLabel(expiresAt) {
 
 export function playPage(boot) {
   return layout({
-    title: "Answer · I am going to UL",
+    title: "Answer · Class check-in",
     bodyClass: "play",
     body: `<div class="wrap">
   <header class="top">
     <div>
-      <p class="lockup site-name">I am going to <img class="ul-mark" src="/media/ul-lafayette.png" alt="UL"></p>
+      <p class="lockup site-name">Class check-in <img class="ul-mark" src="/media/ul-lafayette.png" alt="UL Lafayette"></p>
       <p class="you">You are <strong>${esc(boot.moniker)}</strong></p>
-      <p class="fine">That name can appear on the screen in the room.</p>
+      <form id="team-form" class="team-form">
+        <label for="team">Team</label>
+        <input id="team" maxlength="40" autocomplete="off" placeholder="Team name" value="${esc(boot.team || "")}">
+        <button type="submit">Save</button>
+      </form>
     </div>
     <p class="timer" id="timer">${esc(clockLabel(boot.expiresAt))}</p>
   </header>
+  <p class="fine" id="team-note"></p>
   <p class="fine" id="onscreen"></p>
   <nav class="nav" id="qnav"></nav>
   <main id="panel"></main>
@@ -105,7 +112,7 @@ ${bootScript(boot)}
 
 export function hostPage(boot, publicHost) {
   return layout({
-    title: "Host · I am going to UL",
+    title: "Host · Class check-in",
     bodyClass: "host",
     body: `<div class="edge" id="edge"></div>
 <aside class="drawer" id="drawer">
@@ -139,7 +146,7 @@ export function hostPage(boot, publicHost) {
   </footer>
 </div>
 <div class="qr-block">
-  <p class="lockup booth-mark">I am going to <img class="ul-mark" src="/media/ul-lafayette.png" alt="UL"></p>
+  <p class="lockup booth-mark">Class check-in <img class="ul-mark" src="/media/ul-lafayette.png" alt="UL"></p>
   <div id="qr"></div>
   <p class="scan">Scan to answer</p>
   <p class="clock" id="clock">Same code all day</p>
@@ -153,7 +160,7 @@ ${bootScript(boot)}
 
 export function modPage() {
   return layout({
-    title: "Review · I am going to UL",
+    title: "Review · Class check-in",
     bodyClass: "mod",
     body: `<div class="wrap">
   <nav class="jumps"><a href="/mod" aria-current="page">Review</a><a href="/ask">Answers</a></nav>
@@ -168,7 +175,7 @@ export function modPage() {
 
 export function askPage() {
   return layout({
-    title: "Answers · I am going to UL",
+    title: "Answers · Class check-in",
     bodyClass: "ask",
     body: `<div class="wrap">
   <nav class="jumps"><a href="/mod">Review</a><a href="/ask" aria-current="page">Answers</a></nav>
@@ -184,12 +191,12 @@ export function askPage() {
 export function loginPage(error, next) {
   const alert = error ? `<p class="error">${esc(error)}</p>` : ""
   return layout({
-    title: "Sign in · I am going to UL",
+    title: "Sign in · Class check-in",
     bodyClass: "login",
     body: `<div class="wrap">
   <p class="kicker">UL Lafayette</p>
   <h1>Host sign in</h1>
-  <p class="fine">For the projector, review, and answer drafts.</p>
+  <p class="fine">For the projector.</p>
   ${alert}
   <form method="post" action="/login">
     <input type="hidden" name="next" value="${esc(next)}">
@@ -216,10 +223,10 @@ export function loginPage(error, next) {
 
 export function printPage({ svg, url }) {
   return layout({
-    title: "Print the code · I am going to UL",
+    title: "Print the code · Class check-in",
     bodyClass: "print-sheet",
     body: `<div class="sheet">
-  <p class="lockup booth-mark">I am going to <img class="ul-mark" src="/media/ul-lafayette.png" alt="UL"></p>
+  <p class="lockup booth-mark">Class check-in <img class="ul-mark" src="/media/ul-lafayette.png" alt="UL"></p>
   <div class="print-qr">${svg}</div>
   <p class="scan">Scan to answer</p>
   <p class="fine url">${esc(url)}</p>
@@ -231,7 +238,7 @@ export function printPage({ svg, url }) {
 
 export function messagePage(title, text) {
   return layout({
-    title: `${title} · I am going to UL`,
+    title: `${title} · Class check-in`,
     bodyClass: "browse",
     body: `<div class="wrap narrow">
   <p class="kicker">UL Lafayette</p>

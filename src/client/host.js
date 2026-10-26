@@ -36,7 +36,8 @@ function renderDrawer() {
   const list = document.getElementById("qlist")
   list.replaceChildren()
   questions.forEach((q, index) => {
-    list.append(el("button", { type: "button", click: () => select(q.id) }, [(index + 1) + "  " + q.title]))
+    const who = q.audience === "team" ? "Team · " : ""
+    list.append(el("button", { type: "button", click: () => select(q.id) }, [(index + 1) + "  " + who + q.title]))
   })
 }
 
@@ -86,8 +87,11 @@ function paintQuestion() {
   document.getElementById("which").textContent = (index + 1) + " · " + q.title
   const body = document.getElementById("qbody")
   body.replaceChildren(el("h1", { class: "prompt" }, [q.prompt]))
+  body.append(el("p", { class: "fine" }, [
+    q.audience === "team" ? "One phone per team. Agree, then send." : "Each person answers.",
+  ]))
   if (q.kind === "multi") body.append(el("p", { class: "fine" }, ["Pick any that fit."]))
-  if (q.kind === "open") body.append(el("p", { class: "fine" }, ["Written answers."]))
+  if (q.kind === "open") body.append(el("p", { class: "fine" }, ["One short line."]))
   appendMedia(body, q, "player")
   for (const choice of q.choices) body.append(el("p", { class: "choice-line" }, [choice.label]))
   const live = document.getElementById("live")
@@ -120,7 +124,7 @@ function ensureLive(q) {
   live.dataset.qid = q.id
   live.dataset.feed = "pending"
   live.replaceChildren(el("p", { class: "kicker" }, ["In the room"]))
-  live.append(el("p", { class: "total", id: "total" }, ["0 answered"]))
+  live.append(el("p", { class: "total", id: "total" }, [countLabel(q, 0)]))
   if (q.kind !== "open") {
     const rows = el("div", { id: "rows" })
     for (const choice of q.choices) {
@@ -138,14 +142,20 @@ function ensureLive(q) {
     if (q.kind === "multi") rows.append(el("p", { class: "fine" }, ["People can pick more than one."]))
     live.append(rows)
   }
-  live.append(el("p", { class: "kicker feed-kicker" }, ["On the screen"]))
-  live.append(el("div", { id: "feed" }))
+  if (q.writes) {
+    live.append(el("p", { class: "kicker feed-kicker" }, ["On the screen"]))
+    live.append(el("div", { id: "feed" }))
+  }
+}
+
+function countLabel(q, total) {
+  const noun = q.audience === "team" ? (total === 1 ? "team" : "teams") : (total === 1 ? "person" : "people")
+  return total + " " + noun
 }
 
 function paintLive(q, data) {
   ensureLive(q)
-  const noun = q.kind === "open" ? "sent" : "answered"
-  document.getElementById("total").textContent = data.total + " " + noun
+  document.getElementById("total").textContent = countLabel(q, data.total)
   for (const count of data.counts) {
     const row = document.querySelector('[data-choice="' + CSS.escape(count.choiceId) + '"]')
     if (!row) continue
@@ -158,9 +168,10 @@ function paintLive(q, data) {
   if (live.dataset.feed === sig) return
   live.dataset.feed = sig
   const feed = document.getElementById("feed")
+  if (!feed) return
   feed.replaceChildren()
   if (!data.comments.length) {
-    feed.append(el("p", { class: "fine" }, ["Approved comments will show up here."]))
+    feed.append(el("p", { class: "fine" }, [q.live ? "Lines show up as they come in." : "Approved comments will show up here."]))
     return
   }
   for (const comment of data.comments) {

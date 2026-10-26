@@ -112,17 +112,18 @@ async function run() {
   const home = await request("/")
   const homeHtml = await text(home)
   assert(home.status === 200, "browse status")
-  assert(homeHtml.includes("I am going to UL"), "browse title")
+  assert(homeHtml.includes("Class check-in"), "browse title")
   assert(homeHtml.includes("/media/ul-lafayette.png"), "browse uses the UL mark")
-  assert(!homeHtml.includes("better suited for Mars"), "vehicle question is gone")
+  assert(homeHtml.includes("How comfortable are you using Git with a team?"), "git question")
+  assert(homeHtml.includes("using AI tools while you code"), "ai question")
+  assert(homeHtml.includes("Which AI tools are you using?"), "agents question")
+  assert(homeHtml.includes("What are you finding difficult?"), "hard question")
+  assert(homeHtml.includes("How does your team use Git?"), "team git")
+  assert(homeHtml.includes("What topic should we cover"), "cover question")
+  assert(homeHtml.includes("One phone per team."), "team questions are marked")
+  assert(!homeHtml.includes("before Tesla"), "science day questions are archived")
+  assert(!homeHtml.includes("Ask me anything"), "ama is archived")
   assert(!homeHtml.includes("player.vimeo.com"), "browse does not embed the film")
-  assert(homeHtml.includes("computing, AI, self-driving cars"), "ama topics")
-  assert(!homeHtml.includes("joined a Mars mission"), "mars mission question is gone")
-  const rideAt = homeHtml.indexOf("ride in a car an AI is driving")
-  const learnAt = homeHtml.indexOf("most useful thing to learn before you use AI")
-  const amaAt = homeHtml.lastIndexOf("Ask me anything")
-  assert(rideAt > 0 && learnAt > rideAt && amaAt > learnAt, "new AI questions sit before ask me anything")
-  assert(!homeHtml.includes("computing, Mars"), "ama drops Mars")
   assert(!homeHtml.includes("Science Day"), "no Science Day label")
   const guide = await request("/help")
   const guideHtml = await text(guide)
@@ -131,8 +132,7 @@ async function run() {
   assert(!/Booth-[A-Z0-9]+/.test(guideHtml), "help guide does not include the password")
   const shot = await request("/help/images/login.png")
   assert(shot.status === 200 && (shot.headers.get("content-type") || "").includes("image"), "help screenshot")
-  assert(homeHtml.includes("before Tesla"), "browse question")
-  assert(!homeHtml.includes("DARPA"), "browse hides the reveal")
+  assert(!homeHtml.includes("DARPA"), "browse hides the old reveal")
   assert(!homeHtml.includes("next parish"), "browse hides the Mars reveal")
   const photo = await request("/media/cajunbot.jpg")
   assert(photo.status === 200 && (photo.headers.get("content-type") || "").includes("image"), "CajunBot photo is served")
@@ -187,86 +187,108 @@ async function run() {
   const playing = await request("/play", { jar: phone })
   const playingHtml = await text(playing)
   assert(playing.status === 200 && playingHtml.includes("You are"), "play assigns a moniker")
-  assert(playingHtml.includes("Every question and reply shows up here"), "ama shares replies with every phone")
-  assert(!playingHtml.includes("DARPA"), "play hides the reveal until an answer")
+  assert(playingHtml.includes('id="team"'), "play asks for a team name")
+  assert(!playingHtml.includes("DARPA"), "play hides old reveals")
 
-  const early = await request("/api/questions/before-tesla/results", { jar: phone })
+  const early = await request("/api/questions/git-you/results", { jar: phone })
   assert(early.status === 403, "results wait for an answer")
 
   const tooLong = "x".repeat(141)
   const rejected = await request("/api/answers", {
     jar: phone,
     method: "POST",
-    json: { questionId: "before-tesla", choiceIds: ["before-tesla-true"], comment: tooLong },
+    json: { questionId: "cover", choiceIds: [], comment: tooLong },
   })
   assert(rejected.status === 400, "comment cap")
-  assert((await request("/api/questions/before-tesla/results", { jar: phone })).status === 403, "failed comment does not count as an answer")
+  assert((await request("/api/questions/cover/results", { jar: phone })).status === 403, "failed comment does not count as an answer")
 
   const vote = await request("/api/answers", {
     jar: phone,
     method: "POST",
-    json: {
-      questionId: "before-tesla",
-      choiceIds: ["before-tesla-true"],
-      comment: "The wheels matter less than the code.",
-    },
+    json: { questionId: "git-you", choiceIds: ["git-you-branch"], comment: "" },
   })
   assert(vote.status === 201, "vote stored")
   const again = await request("/api/answers", {
     jar: phone,
     method: "POST",
-    json: { questionId: "before-tesla", choiceIds: ["before-tesla-false"], comment: "second" },
+    json: { questionId: "git-you", choiceIds: ["git-you-own"], comment: "" },
   })
   assert(again.status === 409, "one answer")
 
-  const hidden = await json(await request("/api/questions/before-tesla/results", { jar: phone }))
-  assert(hidden.reveal.includes("DARPA"), "reveal after answering")
+  const hidden = await json(await request("/api/questions/git-you/results", { jar: phone }))
   assert(hidden.total === 1, "one vote counted")
-  assert(hidden.comments.length === 0, "pending comment stays hidden")
-  const liveHidden = await json(await request("/api/host/live?questionId=before-tesla", { jar: admin }))
+  assert(hidden.comments.length === 0, "choice question has no written line")
+  const liveHidden = await json(await request("/api/host/live?questionId=git-you", { jar: admin }))
   assert(liveHidden.total === 1, "projector count")
-  assert(liveHidden.comments.length === 0, "projector hides pending text")
-  assert(!JSON.stringify(liveHidden).includes("DARPA"), "projector hides the reveal")
+  assert(!JSON.stringify(liveHidden).includes("DARPA"), "projector hides old reveals")
 
-  const queued = await json(await request("/api/mod/next", { jar: admin }))
-  assert(!queued.empty && queued.comment.body.includes("wheels"), "review queue")
-  assert(queued.comment.flagged === false, "clean comment is not flagged")
-  assert(queued.comment.choices.includes("True"), "review shows the choice")
-  const approved = await request(`/api/mod/${queued.comment.id}/approve`, { jar: admin, method: "POST" })
-  assert(approved.status === 200, "approve")
-  const shown = await json(await request("/api/questions/before-tesla/results", { jar: phone }))
-  assert(shown.comments.some((comment) => comment.body.includes("wheels")), "approved comment reaches the phone")
-  const liveShown = await json(await request("/api/host/live?questionId=before-tesla", { jar: admin }))
-  assert(liveShown.comments.some((comment) => comment.body.includes("wheels")), "approved comment reaches the projector")
-  assert((await request(`/api/mod/${queued.comment.id}/hide`, { jar: admin, method: "POST" })).status === 200, "take down")
-  const pulled = await json(await request("/api/host/live?questionId=before-tesla", { jar: admin }))
-  assert(pulled.total === 1, "take down keeps the vote")
-  assert(!pulled.comments.some((comment) => comment.body.includes("wheels")), "taken down comment leaves the projector")
-  const phonePulled = await json(await request("/api/questions/before-tesla/results", { jar: phone }))
-  assert(!phonePulled.comments.some((comment) => comment.body.includes("wheels")), "taken down comment leaves the phone")
-
-  const flagged = await request("/api/answers", {
+  const noTeam = await request("/api/answers", {
     jar: phone,
     method: "POST",
-    json: { questionId: "ama", choiceIds: [], comment: "write me at student@example.com" },
+    json: { questionId: "git-team", choiceIds: ["git-team-branch"], comment: "" },
   })
-  assert(flagged.status === 201, "open question")
-  const flaggedCard = await json(await request("/api/mod/next", { jar: admin }))
-  assert(flaggedCard.comment.flagged === true, "email is flagged")
-  assert((await request(`/api/mod/${flaggedCard.comment.id}/reject`, { jar: admin, method: "POST" })).status === 200, "reject")
-  const afterReject = await json(await request("/api/host/live?questionId=ama", { jar: admin }))
-  assert(afterReject.comments.length === 0, "rejected comment stays off the projector")
-  assert((await json(await request("/api/mod/next", { jar: admin }))).empty, "queue drains")
+  assert(noTeam.status === 400, "team question waits for a team name")
+
+  assert((await request("/api/team", { jar: phone, method: "POST", json: { name: "Red" } })).status === 200, "team name saved")
+  const mate = {}
+  assert((await request(new URL(second.url).pathname, { jar: mate })).status === 302, "teammate scans")
+  assert((await request("/api/team", { jar: mate, method: "POST", json: { name: "red" } })).status === 200, "same team, any case")
+  const teamVote = await request("/api/answers", {
+    jar: phone,
+    method: "POST",
+    json: { questionId: "git-team", choiceIds: ["git-team-branch"], comment: "" },
+  })
+  assert(teamVote.status === 201, "one phone sends the team answer")
+  const teamAgain = await request("/api/answers", {
+    jar: mate,
+    method: "POST",
+    json: { questionId: "git-team", choiceIds: ["git-team-one"], comment: "" },
+  })
+  assert(teamAgain.status === 409, "second phone on the team does not double count")
+  const teamResults = await json(await request("/api/questions/git-team/results", { jar: mate }))
+  assert(teamResults.total === 1, "team tally counts the team once")
+  assert((await request("/api/team", { jar: phone, method: "POST", json: { name: "Blue" } })).status === 409, "team name locks after an answer")
 
   const multi = await request("/api/answers", {
     jar: phone,
     method: "POST",
-    json: { questionId: "colony-skills", choiceIds: ["colony-skills-1", "colony-skills-4"], comment: "" },
+    json: { questionId: "agents", choiceIds: ["agents-cursor", "agents-other"], comment: "Windsurf" },
   })
   assert(multi.status === 201, "multi select")
-  const skills = await json(await request("/api/questions/colony-skills/results", { jar: phone }))
-  assert(skills.counts.find((row) => row.choiceId === "colony-skills-1").count === 1, "first skill counted")
-  assert(skills.counts.find((row) => row.choiceId === "colony-skills-4").count === 1, "second skill counted")
+  const agents = await json(await request("/api/questions/agents/results", { jar: phone }))
+  assert(agents.counts.find((row) => row.choiceId === "agents-cursor").count === 1, "cursor counted")
+  assert(agents.comments.some((comment) => comment.body.includes("Windsurf")), "other tool shows immediately")
+
+  const cover = await request("/api/answers", {
+    jar: phone,
+    method: "POST",
+    json: { questionId: "cover", choiceIds: [], comment: "Merging branches" },
+  })
+  assert(cover.status === 201, "team line stored")
+  const liveCover = await json(await request("/api/host/live?questionId=cover", { jar: admin }))
+  assert(liveCover.comments.some((comment) => comment.body.includes("Merging branches")), "team line reaches the projector")
+  assert(liveCover.comments.some((comment) => comment.moniker === "Red"), "projector shows the team name")
+  const coverId = liveCover.comments.find((comment) => comment.body.includes("Merging branches")).id
+  assert((await request(`/api/mod/${coverId}/hide`, { jar: admin, method: "POST" })).status === 200, "take down")
+  const pulled = await json(await request("/api/host/live?questionId=cover", { jar: admin }))
+  assert(pulled.total === 1, "take down keeps the answer")
+  assert(!pulled.comments.some((comment) => comment.body.includes("Merging")), "taken down line leaves the projector")
+
+  const blue = {}
+  assert((await request(new URL(second.url).pathname, { jar: blue })).status === 302, "another team scans")
+  assert((await request("/api/team", { jar: blue, method: "POST", json: { name: "Blue" } })).status === 200, "second team name")
+  const flagged = await request("/api/answers", {
+    jar: blue,
+    method: "POST",
+    json: { questionId: "cover", choiceIds: [], comment: "write me at student@example.com" },
+  })
+  assert(flagged.status === 201, "flagged line stored")
+  const flaggedCard = await json(await request("/api/mod/next", { jar: admin }))
+  assert(!flaggedCard.empty && flaggedCard.comment.flagged === true, "email is flagged")
+  assert((await request(`/api/mod/${flaggedCard.comment.id}/reject`, { jar: admin, method: "POST" })).status === 200, "reject")
+  const afterReject = await json(await request("/api/host/live?questionId=cover", { jar: admin }))
+  assert(!afterReject.comments.some((comment) => comment.body.includes("example.com")), "rejected line stays off the projector")
+  assert((await json(await request("/api/mod/next", { jar: admin }))).empty, "queue drains")
 
   assert((await request("/api/host/pause", { jar: admin, method: "POST", json: { paused: true } })).status === 200, "pause")
   const other = {}
@@ -274,7 +296,7 @@ async function run() {
   const pausedVote = await request("/api/answers", {
     jar: other,
     method: "POST",
-    json: { questionId: "mars-when", choiceIds: ["mars-when-2"], comment: "" },
+    json: { questionId: "ai-you", choiceIds: ["ai-you-ask"], comment: "" },
   })
   assert(pausedVote.status === 403, "pause blocks answers")
   assert((await request("/api/host/pause", { jar: admin, method: "POST", json: { paused: false } })).status === 200, "resume")
@@ -282,7 +304,7 @@ async function run() {
     (await request("/api/answers", {
       jar: other,
       method: "POST",
-      json: { questionId: "mars-when", choiceIds: ["mars-when-2"], comment: "" },
+      json: { questionId: "ai-you", choiceIds: ["ai-you-ask"], comment: "" },
     })).status === 201,
     "resume allows answers",
   )
@@ -293,29 +315,10 @@ async function run() {
   assert(fresh.n !== second.n, "revoke mints a new sheet")
   assert((await redeem(fresh.url)).status === 302, "new code after revoke works")
 
-  const askOpen = await request("/api/answers", {
-    jar: other,
-    method: "POST",
-    json: { questionId: "ama", choiceIds: [], comment: "What is computing like at UL?" },
-  })
-  assert(askOpen.status === 201, "second ama stored")
-  const mine = await json(await request("/api/questions/ama/results", { jar: other }))
-  const own = mine.comments.find((comment) => comment.body.includes("computing like at UL"))
-  assert(own && own.mine && !own.reply, "asker sees their question before the reply")
-  const peers = await json(await request("/api/questions/ama/results", { jar: phone }))
-  assert(peers.comments.some((comment) => comment.body.includes("computing like at UL")), "every phone sees the question")
-  const projector = await json(await request("/api/host/live?questionId=ama", { jar: admin }))
-  assert(!projector.comments.some((comment) => comment.body.includes("computing like at UL")), "projector waits for approval")
-  const askList = await json(await request("/api/ask", { jar: admin }))
-  const kept = askList.items.find((item) => item.body.includes("computing like at UL"))
-  assert(kept, "ask lists the question")
-  const draft = await request("/api/ask/" + kept.id, { jar: admin, method: "POST", json: {} })
-  assert(draft.status === 503, "draft waits for a Gemini key")
-  assert((await json(draft)).error === "nokey", "missing key is explicit")
   assert((await request("/api/host/clear", { jar: admin, method: "POST" })).status === 200, "clear")
-  const cleared = await json(await request("/api/host/live?questionId=before-tesla", { jar: admin }))
+  const cleared = await json(await request("/api/host/live?questionId=git-you", { jar: admin }))
   assert(cleared.total === 0 && cleared.comments.length === 0, "clear removes votes and comments")
-  assert((await json(await request("/api/ask", { jar: admin }))).items.length === 0, "clear removes questions")
+  assert((await json(await request("/api/ask", { jar: admin }))).items.length === 0, "clear removes drafted questions")
   console.log("smoke ok")
 }
 

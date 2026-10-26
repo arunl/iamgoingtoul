@@ -68,20 +68,33 @@ export function openDatabase() {
   db.prepare("PRAGMA foreign_keys = ON").get()
   db.prepare("PRAGMA busy_timeout = 5000").get()
   db.exec(SCHEMA)
+  migrate()
   seed()
+}
+
+function migrate() {
+  const participants = db.prepare("PRAGMA table_info(participants)").all()
+  if (!participants.some((col) => col.name === "team_name")) {
+    db.exec("ALTER TABLE participants ADD COLUMN team_name TEXT NOT NULL DEFAULT ''")
+  }
+  const questions = db.prepare("PRAGMA table_info(questions)").all()
+  if (!questions.some((col) => col.name === "audience")) {
+    db.exec("ALTER TABLE questions ADD COLUMN audience TEXT NOT NULL DEFAULT 'you'")
+  }
 }
 
 function seed() {
   const upsertQuestion = db.prepare(`
-    INSERT INTO questions (id, position, title, prompt, kind, reveal, hint)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO questions (id, position, title, prompt, kind, reveal, hint, audience)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       position = excluded.position,
       title = excluded.title,
       prompt = excluded.prompt,
       kind = excluded.kind,
       reveal = excluded.reveal,
-      hint = excluded.hint
+      hint = excluded.hint,
+      audience = excluded.audience
   `)
   const upsertChoice = db.prepare(`
     INSERT INTO choices (id, question_id, label, position)
@@ -117,6 +130,7 @@ function seed() {
       question.kind,
       question.reveal,
       question.hint || "",
+      question.audience === "team" ? "team" : "you",
     )
     question.choices.forEach((choice, choiceIndex) => {
       upsertChoice.run(choice.id, question.id, choice.label, choiceIndex + 1)
@@ -124,8 +138,13 @@ function seed() {
   }
 }
 
+function sourceOf(id) {
+  return QUESTIONS.find((item) => item.id === id) || {}
+}
+
 function mapQuestion(row) {
   if (!row) return null
+  const source = sourceOf(row.id)
   const choices = db
     .prepare("SELECT id, label, position FROM choices WHERE question_id = ? ORDER BY position")
     .all(row.id)
@@ -137,8 +156,15 @@ function mapQuestion(row) {
     kind: row.kind,
     reveal: row.reveal,
     hint: row.hint || "",
+    audience: row.audience === "team" ? "team" : "you",
+    writes: Boolean(source.writes) || row.kind === "open",
+    live: Boolean(source.live),
     choices,
   }
+}
+
+function teamKey(name) {
+  return String(name || "").replace(/\s+/g, " ").trim().toLowerCase()
 }
 
 export function listQuestions() {
@@ -203,6 +229,7 @@ export function getParticipant(id) {
   return {
     id: row.id,
     moniker: row.moniker,
+    team_name: row.team_name || "",
     created_at: Number(row.created_at),
     expires_at: Number(row.expires_at),
   }
@@ -220,7 +247,7 @@ export function createParticipant(expiresAt) {
         "INSERT INTO participants (id, moniker, created_at, expires_at) VALUES (?, ?, ?, ?)",
       ).run(id, moniker, now, expiresAt)
       db.exec("COMMIT")
-      return { id, moniker, created_at: now, expires_at: expiresAt }
+      return { id, moniker, team_name: "", created_at: now, expires_at: expiresAt }
     } catch (error) {
       try {
         db.exec("ROLLBACK")
@@ -243,29 +270,62 @@ export function extendParticipant(id, expiresAt) {
   return { ...row, expires_at: next }
 }
 
+export function setTeam(participantId, name) {
+  const clean = String(name || "").replace(/\s+/g, " ").trim()
+  if (!clean || clean.length > 40) return { error: "bad" }
+  const current = db.prepare("SELECT team_name FROM participants WHERE id = ?").get(participantId)
+  if (!current) return { error: "unknown" }
+  const key = teamKey(current.team_name)
+  if (key) {
+    const used = db
+      .prepare(
+        `SELECT 1 AS ok
+         FROM answers a
+         JOIN questions q ON q.id = a.question_id
+         JOIN participants p ON p.id = a.participant_id
+         WHERE q.audience = 'team' AND lower(p.team_name) = ?`,
+      )
+      .get(key)
+    if (used) return { error: "locked" }
+  }
+  db.prepare("UPDATE participants SET team_name = ? WHERE id = ?").run(clean, participantId)
+  return { ok: true, team: clean }
+}
+
 export function answeredIds(participantId) {
-  return new Set(
+  const ids = new Set(
     db
       .prepare("SELECT DISTINCT question_id FROM answers WHERE participant_id = ?")
       .all(participantId)
       .map((row) => row.question_id),
   )
+  const row = db.prepare("SELECT team_name FROM participants WHERE id = ?").get(participantId)
+  const key = teamKey(row?.team_name)
+  if (!key) return ids
+  const hits = db
+    .prepare(
+      `SELECT DISTINCT a.question_id AS id
+       FROM answers a
+       JOIN participants p ON p.id = a.participant_id
+       JOIN questions q ON q.id = a.question_id
+       WHERE q.audience = 'team' AND lower(p.team_name) = ?`,
+    )
+    .all(key)
+  for (const hit of hits) ids.add(hit.id)
+  return ids
 }
 
 export function hasAnswered(participantId, questionId) {
-  return Boolean(
-    db
-      .prepare("SELECT 1 AS ok FROM answers WHERE participant_id = ? AND question_id = ?")
-      .get(participantId, questionId),
-  )
+  return answeredIds(participantId).has(questionId)
 }
 
 export function submitAnswer({ participantId, questionId, choiceIds, comment }) {
   const question = getQuestion(questionId)
   if (!question) return { error: "unknown" }
   const ids = [...new Set(choiceIds || [])]
+  const text = question.writes ? comment : null
   if (question.kind === "open") {
-    if (ids.length || !comment) return { error: "bad" }
+    if (ids.length || !text) return { error: "bad" }
   } else if (question.kind === "single") {
     if (ids.length !== 1) return { error: "bad" }
   } else if (ids.length < 1) {
@@ -273,7 +333,7 @@ export function submitAnswer({ participantId, questionId, choiceIds, comment }) 
   }
   const allowed = new Set(question.choices.map((choice) => choice.id))
   if (ids.some((id) => !allowed.has(id))) return { error: "bad" }
-  if (comment && comment.length > 140) return { error: "long" }
+  if (text && text.length > 140) return { error: "long" }
 
   db.exec("BEGIN IMMEDIATE")
   try {
@@ -284,6 +344,26 @@ export function submitAnswer({ participantId, questionId, choiceIds, comment }) 
       db.exec("ROLLBACK")
       return { error: "answered" }
     }
+    if (question.audience === "team") {
+      const participant = db.prepare("SELECT team_name FROM participants WHERE id = ?").get(participantId)
+      const key = teamKey(participant?.team_name)
+      if (!key) {
+        db.exec("ROLLBACK")
+        return { error: "noteam" }
+      }
+      const taken = db
+        .prepare(
+          `SELECT 1 AS ok
+           FROM answers a
+           JOIN participants p ON p.id = a.participant_id
+           WHERE a.question_id = ? AND lower(p.team_name) = ?`,
+        )
+        .get(questionId, key)
+      if (taken) {
+        db.exec("ROLLBACK")
+        return { error: "team" }
+      }
+    }
     const now = Date.now()
     const insert = db.prepare(
       "INSERT INTO answers (participant_id, question_id, choice_id, created_at) VALUES (?, ?, ?, ?)",
@@ -291,11 +371,13 @@ export function submitAnswer({ participantId, questionId, choiceIds, comment }) 
     if (question.kind === "open") insert.run(participantId, questionId, null, now)
     else for (const id of ids) insert.run(participantId, questionId, id, now)
     let commentId = null
-    if (comment) {
+    if (text) {
+      const flagged = isFlagged(text) ? 1 : 0
+      const status = question.live && !flagged ? "approved" : "pending"
       const inserted = db.prepare(
         `INSERT INTO comments (participant_id, question_id, body, status, flagged, created_at)
-         VALUES (?, ?, ?, 'pending', ?, ?)`,
-      ).run(participantId, questionId, comment, isFlagged(comment) ? 1 : 0, now)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      ).run(participantId, questionId, text, status, flagged, now)
       commentId = Number(inserted.lastInsertRowid)
     }
     db.exec("COMMIT")
@@ -314,9 +396,15 @@ export function tally(questionId, participantId = null) {
   const question = getQuestion(questionId)
   if (!question) return null
   const total = Number(
-    db
-      .prepare("SELECT COUNT(DISTINCT participant_id) AS n FROM answers WHERE question_id = ?")
-      .get(questionId).n,
+    (question.audience === "team"
+      ? db.prepare(
+          `SELECT COUNT(DISTINCT lower(p.team_name)) AS n
+           FROM answers a
+           JOIN participants p ON p.id = a.participant_id
+           WHERE a.question_id = ? AND p.team_name != ''`,
+        )
+      : db.prepare("SELECT COUNT(DISTINCT participant_id) AS n FROM answers WHERE question_id = ?")
+    ).get(questionId).n,
   )
   const rows = db
     .prepare(
@@ -333,14 +421,15 @@ export function tally(questionId, participantId = null) {
       share: total ? count / total : 0,
     }
   })
-  const comments = listVisibleComments(questionId, participantId)
+  const comments = listVisibleComments(questionId, participantId, question.audience)
   return { questionId, total, counts, comments, reveal: question.reveal }
 }
 
-export function listVisibleComments(questionId, participantId) {
+export function listVisibleComments(questionId, participantId, audience = "you") {
   return db
     .prepare(
-      `SELECT c.id AS id, c.body AS body, c.participant_id AS participant_id, p.moniker AS moniker, d.body AS reply
+      `SELECT c.id AS id, c.body AS body, c.participant_id AS participant_id, p.moniker AS moniker,
+              p.team_name AS team_name, d.body AS reply
        FROM comments c
        JOIN participants p ON p.id = c.participant_id
        LEFT JOIN drafts d ON d.comment_id = c.id
@@ -356,7 +445,7 @@ export function listVisibleComments(questionId, participantId) {
     .all(questionId, questionId, participantId, participantId, participantId)
     .map((row) => ({
       id: Number(row.id),
-      moniker: row.moniker,
+      moniker: audience === "team" && row.team_name ? row.team_name : row.moniker,
       body: row.body,
       reply: row.reply || null,
       mine: participantId != null && row.participant_id === participantId,

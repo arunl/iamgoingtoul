@@ -30,6 +30,7 @@ import {
   setFeatured,
   setPaused,
   setSetting,
+  setTeam,
   submitAnswer,
   tally,
 } from "./db.js"
@@ -182,6 +183,9 @@ function forClient(question, answered) {
     prompt: question.prompt,
     kind: question.kind,
     hint: question.hint || "",
+    audience: question.audience === "team" ? "team" : "you",
+    writes: Boolean(question.writes),
+    live: Boolean(question.live),
     choices: question.choices.map((choice) => ({ id: choice.id, label: choice.label })),
     images: media.images,
     more: media.more,
@@ -238,6 +242,7 @@ app.get("/play", (req, res) => {
   res.type("html").send(
     playPage({
       moniker: participant.moniker,
+      team: participant.team_name || "",
       expiresAt: participant.expires_at,
       featuredId: featuredId(),
       paused: isPaused(),
@@ -333,6 +338,7 @@ app.get("/api/questions", (req, res) => {
   const answered = participant ? answeredIds(participant.id) : new Set()
   res.json({
     moniker: participant?.moniker || null,
+    team: participant?.team_name || "",
     expiresAt: participant?.expires_at || null,
     featuredId: featuredId(),
     paused: isPaused(),
@@ -380,6 +386,16 @@ function ensureDraft(id, refresh) {
   return job
 }
 
+app.post("/api/team", (req, res) => {
+  const participant = currentParticipant(req)
+  if (!participant) return res.status(401).json({ error: "scan" })
+  if (!allow(`team:${req.ip || "unknown"}`, 30, 60 * 1000)) return res.status(429).json({ error: "slow" })
+  const result = setTeam(participant.id, req.body?.name)
+  if (result.error === "locked") return res.status(409).json({ error: "locked" })
+  if (result.error) return res.status(400).json({ error: result.error })
+  res.json(result)
+})
+
 app.post("/api/answers", (req, res) => {
   const participant = currentParticipant(req)
   if (!participant) return res.status(401).json({ error: "scan" })
@@ -393,7 +409,7 @@ app.post("/api/answers", (req, res) => {
     choiceIds: Array.isArray(req.body?.choiceIds) ? req.body.choiceIds.map(String) : [],
     comment: comment || null,
   })
-  if (result.error === "answered") return res.status(409).json({ error: "answered" })
+  if (result.error === "answered" || result.error === "team") return res.status(409).json({ error: result.error })
   if (result.error) return res.status(400).json({ error: result.error })
   if (req.body?.questionId === "ama" && result.commentId) ensureDraft(result.commentId, false)
   res.status(201).json({ ok: true })

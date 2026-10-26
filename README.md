@@ -1,5 +1,9 @@
 # I am going to UL
 
+The live questions are a class check-in. Science Day 2026 is archived in `src/archive/science-day-2026.js` and is not loaded.
+
+For class: open `/host` on the projector and sign in. Students scan the code. Each person answers Git, AI tools, agents, and hard parts. Each team agrees, then one phone answers Team Git and Cover next. Keys `1` through `6` change the question. Bars update as phones answer. A team’s “what should we cover” line shows on the projector as soon as it is sent. Save a team name on the phone before those two.
+
 Booth site for Science Day, School of Computing and Informatics, University of Louisiana at Lafayette. Built the night of 6 Oct 2026 and used on 7 Oct 2026. Groups of high school students, teachers, and parents had about two or three minutes in the room. The projector was the show. The phone was the ballot.
 
 Next year, replace the questions. The booth around them can stay. This file is the record of what ran. `DESIGN.md` is the brief from the night before, and it drifted before the doors opened.
@@ -33,9 +37,18 @@ One password covers the projector, review, answers, and the print sheet. The adm
 
 ## Questions
 
-The live list is `src/questions.js`. The server copies it into SQLite on startup. Kinds are `single`, `multi`, and `open`. A reveal is stored with the question and shown on a phone only after that phone has answered. Projector titles stay short. Each question has to make sense by itself. Ask me anything stays last.
+The live list is `src/questions.js`. The server copies it into SQLite on startup. Removing a question id deletes that question’s answers the next time the server starts. Kinds are `single`, `multi`, and `open`. `audience` is `you` or `team`. A team question counts once per team name, and the other phones on that team see the result.
 
-Science Day 2026 used these seven:
+The class check-in is:
+
+1. How comfortable are you using Git with a team?
+2. How comfortable are you using AI tools while you code?
+3. Which AI tools are you using?
+4. What are you finding difficult?
+5. How does your team use Git?
+6. What topic should we cover for your team?
+
+Science Day 2026 used these seven, now in `src/archive/science-day-2026.js`:
 
 1. When will humans first set foot on Mars?
 2. A Mars colony needs people who can build which of these? (pick any)

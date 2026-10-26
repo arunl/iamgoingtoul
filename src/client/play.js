@@ -2,6 +2,7 @@ const boot = JSON.parse(document.getElementById("boot").textContent)
 let questions = boot.questions
 let featuredId = boot.featuredId
 let expiresAt = boot.expiresAt
+let teamName = boot.team || ""
 let currentId = questions.some((q) => q.id === featuredId) ? featuredId : questions[0].id
 let viewGen = 0
 let resultTimer = null
@@ -10,16 +11,61 @@ const panel = document.getElementById("panel")
 const nav = document.getElementById("qnav")
 const timer = document.getElementById("timer")
 const onscreen = document.getElementById("onscreen")
+const teamInput = document.getElementById("team")
+const teamNote = document.getElementById("team-note")
+const teamForm = document.getElementById("team-form")
 
 init()
 
 function init() {
+  paintTeam()
+  teamForm.addEventListener("submit", saveTeam)
   renderNav()
   renderOnScreen()
   showCurrent()
   tick()
   setInterval(tick, 1000)
   setInterval(refreshMeta, 3000)
+}
+
+function paintTeam() {
+  teamInput.value = teamName
+  teamNote.textContent = teamName
+    ? "Team questions use " + teamName + ". One phone sends those."
+    : "Save your team name before the team questions. One phone sends those."
+}
+
+async function saveTeam(event) {
+  event.preventDefault()
+  const name = teamInput.value.replace(/\s+/g, " ").trim()
+  if (!name) {
+    teamNote.textContent = "Type your team name, then save it."
+    return
+  }
+  try {
+    const res = await fetch("/api/team", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name }),
+    })
+    if (res.status === 401) {
+      location.href = "/"
+      return
+    }
+    const data = await res.json().catch(() => ({}))
+    if (res.status === 409) {
+      teamNote.textContent = "The team name stays put after a team answer is sent."
+      return
+    }
+    if (!res.ok) {
+      teamNote.textContent = "Use a team name of 40 characters or fewer."
+      return
+    }
+    teamName = data.team || name
+    paintTeam()
+  } catch {
+    teamNote.textContent = "The network dropped. Save the team name again."
+  }
 }
 
 function el(tag, props, kids) {
@@ -119,10 +165,11 @@ function renderForm(q) {
   panel.dataset.sig = ""
   const picked = new Set()
   panel.replaceChildren()
-  panel.append(el("p", { class: "kicker" }, [q.title]))
+  panel.append(el("p", { class: "kicker" }, [(q.audience === "team" ? "Team · " : "You · ") + q.title]))
   panel.append(el("h1", {}, [q.prompt]))
+  if (q.audience === "team") panel.append(el("p", { class: "fine" }, ["Agree, then one phone on the team sends this."]))
+  else panel.append(el("p", { class: "fine" }, ["Each person answers."]))
   if (q.kind === "multi") panel.append(el("p", { class: "fine" }, ["Pick any that fit."]))
-  if (q.kind === "open") panel.append(el("p", { class: "fine" }, ["A short written question."]))
   appendMedia(panel, q)
 
   const error = el("p", { class: "error" }, [""])
@@ -147,20 +194,25 @@ function renderForm(q) {
     panel.append(choiceBox)
   }
 
-  const field = document.createElement("textarea")
-  field.maxLength = 140
-  field.rows = q.kind === "open" ? 3 : 2
-  field.placeholder = q.hint || (q.kind === "open" ? "A short question" : "Optional comment")
-  const counter = el("p", { class: "fine" }, ["140"])
-  field.addEventListener("input", () => {
-    counter.textContent = String(140 - field.value.length)
-  })
-  panel.append(el("label", { class: "field" }, [
-    el("span", {}, [q.kind === "open" ? "Your question" : "Comment"]),
-    field,
-    counter,
-  ]))
-  panel.append(el("p", { class: "fine" }, ["Reviewed before it can show on the screen."]))
+  let field = null
+  if (q.writes) {
+    field = document.createElement("textarea")
+    field.maxLength = 140
+    field.rows = q.kind === "open" ? 3 : 2
+    field.placeholder = q.hint || "A few words"
+    const counter = el("p", { class: "fine" }, ["140"])
+    field.addEventListener("input", () => {
+      counter.textContent = String(140 - field.value.length)
+    })
+    panel.append(el("label", { class: "field" }, [
+      el("span", {}, [q.kind === "open" ? "One line" : "Other tool"]),
+      field,
+      counter,
+    ]))
+    panel.append(el("p", { class: "fine" }, [
+      q.live ? "This shows on the screen as soon as you send it." : "Reviewed before it can show on the screen.",
+    ]))
+  }
   const send = el("button", { type: "button", class: "send" }, ["Send answer"])
   send.addEventListener("click", () => submit(q, picked, field, error, send))
   panel.append(error)
@@ -172,10 +224,14 @@ async function submit(q, picked, field, error, send) {
     error.textContent = "Scan the code again."
     return
   }
+  if (q.audience === "team" && !teamName) {
+    error.textContent = "Save your team name at the top first."
+    return
+  }
   const choiceIds = [...picked]
-  const comment = field.value.replace(/\s+/g, " ").trim()
+  const comment = field ? field.value.replace(/\s+/g, " ").trim() : ""
   if (q.kind === "open" && !comment) {
-    error.textContent = "Write a question first."
+    error.textContent = "Write one line first."
     return
   }
   if (q.kind === "single" && choiceIds.length !== 1) {
@@ -203,6 +259,16 @@ async function submit(q, picked, field, error, send) {
       send.disabled = false
       return
     }
+    if (res.status === 400) {
+      const data = await res.json().catch(() => ({}))
+      error.textContent = data.error === "noteam"
+        ? "Save your team name at the top first."
+        : data.error === "long"
+          ? "Keep it to 140 characters."
+          : "Try that again."
+      send.disabled = false
+      return
+    }
     if (res.status === 429) {
       error.textContent = "Too many phones on this network just answered. Wait a moment and send again."
       send.disabled = false
@@ -214,8 +280,7 @@ async function submit(q, picked, field, error, send) {
       showCurrent()
       return
     }
-    const data = await res.json().catch(() => ({}))
-    error.textContent = data.error === "long" ? "Keep it to 140 characters." : "Try that again."
+    error.textContent = "Try that again."
     send.disabled = false
   } catch {
     error.textContent = "The network dropped. Try again."
@@ -252,11 +317,9 @@ function paintResults(q, data) {
   panel.dataset.qid = q.id
   panel.dataset.sig = sig
   panel.replaceChildren()
-  panel.append(el("p", { class: "kicker" }, [q.title]))
+  panel.append(el("p", { class: "kicker" }, [(q.audience === "team" ? "Team · " : "You · ") + q.title]))
   panel.append(el("h1", {}, [q.prompt]))
-  if (q.id === "ama") panel.append(el("p", { class: "room" }, ["Every question and reply shows up here. You can leave and come back to this page."]))
-  const noun = q.kind === "open" ? "sent" : "answered"
-  panel.append(el("p", { class: "total" }, [data.total + " " + noun]))
+  panel.append(el("p", { class: "total" }, [countLabel(q, data.total)]))
   if (q.kind !== "open") {
     for (const count of data.counts) {
       const pct = Math.round(count.share * 100)
@@ -277,13 +340,14 @@ function paintResults(q, data) {
       el("p", {}, [data.reveal]),
     ]))
   }
-  panel.append(el("p", { class: "kicker" }, [q.id === "ama" ? "Questions and replies" : "From the room"]))
+  if (q.writes) {
+  panel.append(el("p", { class: "kicker" }, ["From the room"]))
   if (!data.comments.length) {
-    panel.append(el("p", { class: "fine" }, [q.id === "ama" ? "Your question will show up here." : "Comments show up here after they are reviewed."]))
+    panel.append(el("p", { class: "fine" }, [q.live ? "Lines show up as they come in." : "Comments show up here after they are reviewed."]))
   } else {
     for (const comment of data.comments) {
       const kids = [
-        el("p", { class: "who" }, [comment.mine ? "Your question" : comment.moniker]),
+        el("p", { class: "who" }, [comment.mine ? "You" : comment.moniker]),
         el("p", {}, [comment.body]),
       ]
       if (comment.reply) {
@@ -291,13 +355,17 @@ function paintResults(q, data) {
           el("p", { class: "kicker" }, ["Reply"]),
           el("p", {}, [comment.reply]),
         ]))
-      } else if (q.id === "ama") {
-        kids.push(el("p", { class: "fine" }, ["The reply is on its way."]))
       }
       panel.append(el("article", { class: "note" }, kids))
     }
   }
+  }
   panel.append(el("button", { type: "button", class: "send", click: () => openQuestion(nextUnanswered(q.id)) }, ["Next question"]))
+}
+
+function countLabel(q, total) {
+  const noun = q.audience === "team" ? (total === 1 ? "team" : "teams") : (total === 1 ? "person" : "people")
+  return total + " " + noun
 }
 
 function nextUnanswered(fromId) {
